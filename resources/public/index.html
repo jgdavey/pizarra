@@ -2,10 +2,22 @@
     <head>
         <title>Pizarra</title>
         <style>
-          canvas {
-            margin: 30px;
-            border: 1px solid #ccc;
-          }
+            body {
+                background-color: #fafafa;
+            }
+            canvas {
+                background-color: #ffffff;
+            }
+            #app canvas {
+                margin: 30px;
+                border: 1px solid #ccc;
+            }
+
+            #history canvas {
+                width: 100px;
+                height: 60px;
+                border: 1px solid #ccc;
+            }
         </style>
         <script src="http://fb.me/react-0.11.1.js"></script>
         <script src="http://cdn.craig.is/js/mousetrap/mousetrap.min.js?9d308"></script>

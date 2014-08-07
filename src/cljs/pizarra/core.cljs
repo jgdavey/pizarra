@@ -68,7 +68,7 @@
     (update-in [:actions] (partial -end line-tool))
     (assoc :drawing? false)))
 
-(defn canvas [data owner]
+(defn canvas [data owner {:keys [interact?]}]
   (reify
     om/IDidMount
     (did-mount [_]
@@ -83,19 +83,20 @@
       (dom/canvas
         (clj->js
           (merge (:dimensions data)
-           {:onSelectStart (fn [_])
-            :onMouseDown (fn [e]
-                           (.preventDefault e)
-                           (om/transact! data [] start-drawing))
-            :onMouseUp (fn [_]
-                         (om/transact! data [] stop-drawing :add-to-undo))
-            :onMouseMove (fn [e]
-                           (when (:drawing? @data)
-                             (let [dom (om/get-node owner)
-                                   idx (dec (count (:actions @data)))
-                                   x (- (.-pageX e) (.-offsetLeft dom))
-                                   y (- (.-pageY e) (.-offsetTop dom))]
-                               (om/transact! data [:actions idx] #(-move line-tool % x y)))))}))
+             (when interact?
+               {:onSelectStart (fn [_])
+                :onMouseDown (fn [e]
+                               (.preventDefault e)
+                               (om/transact! data [] start-drawing))
+                :onMouseUp (fn [_]
+                             (om/transact! data [] stop-drawing :add-to-undo))
+                :onMouseMove (fn [e]
+                               (when (:drawing? @data)
+                                 (let [dom (om/get-node owner)
+                                       idx (dec (count (:actions @data)))
+                                       x (- (.-pageX e) (.-offsetLeft dom))
+                                       y (- (.-pageY e) (.-offsetTop dom))]
+                                   (om/transact! data [:actions idx] #(-move line-tool % x y)))))})))
         nil))))
 
 (defn tools-component [tools owner]
@@ -122,7 +123,7 @@
     (render [_]
       (dom/div nil
                (om/build tools-component (:tools app))
-               (om/build canvas (:canvas app))))))
+               (om/build canvas (:canvas app) {:opts {:interact? true}})))))
 
 (om/root
   app-component
@@ -132,18 +133,23 @@
 
 ;; History management
 
+(defn history-item [item owner {:keys [i]}]
+  (reify om/IRender
+    (render [_]
+      (dom/li #js {:onClick (fn [e]
+                              (.preventDefault e)
+                              (undo/revert-to-history app-state (inc i)))}
+              (om/build canvas (:canvas item))))))
+
 (defn history [undo-history owner]
   (reify
     om/IRender
     (render [_]
-      (dom/div nil
-               (dom/button #js {:onClick (fn [_] (undo/do-undo app-state))
-                                :disabled (not (undo/undo-is-possible))}
-                           "Undo")
-
-               (dom/button #js {:onClick (fn [_] (undo/do-redo app-state))
-                                :disabled (not (undo/redo-is-possible))}
-                           "Redo")))))
+      (apply dom/ul nil
+             (map-indexed
+               (fn [i item]
+                 (om/build history-item item {:opts {:i i}}))
+               undo-history)))))
 
 (undo/init-history app-state)
 
@@ -178,6 +184,7 @@
 (swap! app-state update-in [:canvas :actions] pop)
 
 (deref app-state)
+(deref undo/app-history)
 
 (swap! app-state update-in [:tools] assoc :lineWidth 3)
 

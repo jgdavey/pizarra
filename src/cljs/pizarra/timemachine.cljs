@@ -28,6 +28,15 @@
     (swap! app-history pop)
     (reset! app-state (peek @app-history))))
 
+(defn revert-to-history [app-state idx]
+  (when (undo-is-possible)
+    (let [[new-history new-future] (map vec (split-at idx @app-history))]
+    (swap! app-future #(concat new-future %))
+    (reset! app-history new-history)
+    (reset! app-state (peek new-history)))))
+
+(defn revert-to-future [app-state idx])
+
 (defn do-redo [app-state]
   (when (redo-is-possible)
     (reset! app-state (peek @app-future))
