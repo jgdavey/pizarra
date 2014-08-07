@@ -26,10 +26,10 @@
     (doseq [[k val] props]
       (aset context (name k) val))
     (.beginPath context)
-    (let [point (first points)]
-      (.moveTo context (:x point) (:y point)))
-    (doseq [point points]
-      (.lineTo context (:x point) (:y point)))
+    (let [[x y] (first points)]
+      (.moveTo context x y))
+    (doseq [[x y] points]
+      (.lineTo context x y))
     (.stroke context)
     (.restore context)))
 
@@ -44,7 +44,7 @@
     (-start [_ actions]
       (conj actions (new-line-action)))
     (-move [_ action x y]
-      (update-in action [:points] conj {:x x :y y}))
+      (update-in action [:points] conj [x y]))
     (-end [_ action]
       action)))
 
