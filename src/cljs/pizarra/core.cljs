@@ -107,11 +107,26 @@
                  (dom/button #js {:onClick (fn [_] (undo/do-redo app-state))}
                              "Redo"))))))
 
+(defn tools-component [tools owner]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div nil
+               (apply dom/select
+                      #js {:value (:width tools)
+                           :onChange (fn [e]
+                                       (let [newval (.-value (.-currentTarget e))]
+                                         (om/update! tools [:width] newval)))}
+                      (map (fn [i]
+                             (dom/option #js {:value i} i))
+                           (range 1 11)))))))
+
 (defn app-component [app owner]
   (reify
     om/IRender
     (render [_]
       (dom/div nil
+               (om/build tools-component (:tools app))
                (om/build canvas (:canvas app))))))
 
 (undo/init-history app-state)
