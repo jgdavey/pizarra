@@ -20,7 +20,7 @@
 (defprotocol ITool
   (-start [this actions])
   (-move [this action x y])
-  (-end [this action]))
+  (-end [this actions]))
 
 (defrecord LineAction [points props]
   Drawable
@@ -46,8 +46,8 @@
       (conj actions (new-line-action)))
     (-move [_ action x y]
       (update-in action [:points] conj [x y]))
-    (-end [_ action]
-      action)))
+    (-end [_ actions]
+      actions)))
 
 (defn clearContext [context]
   (let [canvas (.-canvas context)]
