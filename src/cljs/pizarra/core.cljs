@@ -107,7 +107,7 @@
                (dom/input #js {:type "text"
                                :value (:lineWidth tools)
                                :onChange (fn [e]
-                                           (om/update! tools [:lineWidth] (.-value (.-currentTarget e))))})
+                                           (om/update! tools [:lineWidth] (js/parseInt (.-value (.-currentTarget e)))))})
                (dom/input #js {:type "text"
                                :value (:strokeStyle tools)
                                :onChange (fn [e]
@@ -166,15 +166,18 @@
                             (swap! app-state update-in [:canvas] stop-drawing)
                             (undo/push-onto-undo-stack @app-state)))
 
-(defn bind-number [nkey width]
-  (.bind js/Mousetrap
-         (str nkey)
-         (fn []
-           (swap! app-state update-in [:tools] assoc :lineWidth width))))
+(defn bounded-bump [f n]
+  (let [m (f n)]
+    (if (> m 0)
+      m
+      n)))
 
-(doseq [i (range 1 10)]
-  (bind-number i i))
-(bind-number 0 10)
+(.bind js/Mousetrap "["
+       (fn [] (swap! app-state update-in [:tools :lineWidth] (partial bounded-bump dec))))
+
+(.bind js/Mousetrap "]"
+       (fn [] (swap! app-state update-in [:tools :lineWidth] (partial bounded-bump inc))))
+
 
 (comment
 
