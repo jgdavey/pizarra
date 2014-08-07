@@ -58,6 +58,16 @@
   (doseq [action (om/value actions)]
     (-draw action context)))
 
+(defn start-drawing [canvas]
+  (-> canvas
+    (update-in [:actions] (partial -start line-tool))
+    (assoc :drawing? true)))
+
+(defn stop-drawing [canvas]
+  (-> canvas
+    (update-in [:actions] (partial -end line-tool))
+    (assoc :drawing? false)))
+
 (defn canvas [data owner]
   (reify
     om/IDidMount
@@ -76,13 +86,9 @@
            {:onSelectStart (fn [_])
             :onMouseDown (fn [e]
                            (.preventDefault e)
-                           (om/transact! data [:actions] (partial -start line-tool))
-                           (om/update! data [:drawing?] true))
+                           (om/transact! data [] start-drawing))
             :onMouseUp (fn [_]
-                         (let [idx (dec (count (:actions @data)))]
-                           (om/transact! data [:actions idx]
-                                         (partial -end line-tool) :add-to-undo)
-                           (om/update! data [:drawing?] false)))
+                         (om/transact! data [] stop-drawing :add-to-undo))
             :onMouseMove (fn [e]
                            (when (:drawing? @data)
                              (let [dom (om/get-node owner)
@@ -149,6 +155,21 @@
 
 (.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] #(undo/do-undo app-state))
 (.bind js/Mousetrap #js ["ctrl+r"] #(undo/do-redo app-state))
+
+(.bind js/Mousetrap "i" #(swap! app-state update-in [:canvas] start-drawing))
+(.bind js/Mousetrap "esc" (fn [_]
+                            (swap! app-state update-in [:canvas] stop-drawing)
+                            (undo/push-onto-undo-stack @app-state)))
+
+(defn bind-number [nkey width]
+  (.bind js/Mousetrap
+         (str nkey)
+         (fn []
+           (swap! app-state update-in [:tools] assoc :lineWidth width))))
+
+(doseq [i (range 1 10)]
+  (bind-number i i))
+(bind-number 0 10)
 
 (comment
 
