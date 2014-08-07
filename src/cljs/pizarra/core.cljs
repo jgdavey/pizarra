@@ -90,8 +90,8 @@
                            (when drawing?
                              (let [dom (om/get-node owner)
                                    idx (dec (count (:actions @data)))
-                                   x (- (.-clientX e) (.-offsetTop dom))
-                                   y (- (.-clientY e) (.-offsetLeft dom))]
+                                   x (- (.-pageX e) (.-offsetLeft dom))
+                                   y (- (.-pageY e) (.-offsetTop dom))]
                                (om/transact! data [:actions idx] #(-move line-tool % x y)))))}))
         nil))))
 
