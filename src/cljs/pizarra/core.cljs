@@ -10,7 +10,8 @@
 (def app-state
   (atom {:canvas {:dimensions {:width 800 :height 400}
                   :actions []}
-         :tools {:width 4}}))
+         :tools {:width 4
+                 :strokeStyle "#000000" }}))
 
 (defprotocol Drawable
   (-draw [this context]))
@@ -35,7 +36,7 @@
     (.restore context)))
 
 (defn new-line-action []
-  (->LineAction [] {:strokeStyle "#000000"
+  (->LineAction [] {:strokeStyle (get-in @app-state [:tools :strokeStyle])
                     :lineCap "round"
                     :lineJoin "round"
                     :lineWidth (get-in @app-state [:tools :width])}))
@@ -119,7 +120,11 @@
                                          (om/update! tools [:width] newval)))}
                       (map (fn [i]
                              (dom/option #js {:value i} i))
-                           (range 1 11)))))))
+                           (range 1 11)))
+               (dom/input #js {:type "text"
+                               :value (:strokeStyle tools)
+                               :onChange (fn [e]
+                                           (om/update! tools [:strokeStyle] (.-value (.-currentTarget e))))})))))
 
 (defn app-component [app owner]
   (reify
