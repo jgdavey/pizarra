@@ -32,5 +32,5 @@
                                    :output-dir "resources/public/js/out"
                                    :optimizations :none
                                    :source-map true
-                                   :externs ["react/externs/react.js"]}}]}
+                                   :externs ["react/externs/react.js" "libs/mousetrap.js"]}}]}
 )

@@ -143,6 +143,9 @@
   undo/app-history
   {:target (. js/document (getElementById "history"))})
 
+(.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] #(undo/do-undo app-state))
+(.bind js/Mousetrap #js ["ctrl+r"] #(undo/do-redo app-state))
+
 (comment
 
 (swap! app-state update-in [:canvas :actions 0 :props] assoc :strokeStyle "#999999")
