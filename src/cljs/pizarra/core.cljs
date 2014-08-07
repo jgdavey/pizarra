@@ -8,7 +8,8 @@
 (enable-console-print!)
 
 (def app-state
-  (atom {:canvas {:dimensions {:width 800 :height 400}
+  (atom {:canvas {:drawing? false
+                  :dimensions {:width 800 :height 400}
                   :actions []}
          :tools {:lineWidth 4
                  :strokeStyle "#000000" }}))
@@ -59,9 +60,6 @@
 
 (defn canvas [data owner]
   (reify
-    om/IInitState
-    (init-state [_]
-      {:drawing? false})
     om/IDidMount
     (did-mount [_]
       (repaint (.getContext (om/get-node owner) "2d")
@@ -70,8 +68,8 @@
     (did-update [_ prev-props prev-state]
       (repaint (.getContext (om/get-node owner) "2d")
                (:actions data)))
-    om/IRenderState
-    (render-state [_ {:keys [drawing?]}]
+    om/IRender
+    (render [_]
       (dom/canvas
         (clj->js
           (merge (:dimensions data)
@@ -79,14 +77,14 @@
             :onMouseDown (fn [e]
                            (.preventDefault e)
                            (om/transact! data [:actions] (partial -start line-tool))
-                           (om/set-state! owner :drawing? true))
+                           (om/update! data [:drawing?] true))
             :onMouseUp (fn [_]
                          (let [idx (dec (count (:actions @data)))]
                            (om/transact! data [:actions idx]
                                          (partial -end line-tool) :add-to-undo)
-                           (om/set-state! owner :drawing? false)))
+                           (om/update! data [:drawing?] false)))
             :onMouseMove (fn [e]
-                           (when drawing?
+                           (when (:drawing? @data)
                              (let [dom (om/get-node owner)
                                    idx (dec (count (:actions @data)))
                                    x (- (.-pageX e) (.-offsetLeft dom))
@@ -153,5 +151,7 @@
 (deref app-state)
 
 (swap! app-state update-in [:tools] assoc :lineWidth 3)
+
+(swap! app-state update-in [:canvas :dimensions] assoc :width 900 :height 300)
 
 )
