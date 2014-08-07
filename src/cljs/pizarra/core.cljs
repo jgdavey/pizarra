@@ -134,9 +134,10 @@
 ;; History management
 
 (defn history-item [item owner {:keys [i]}]
-  (reify om/IRender
-    (render [_]
-      (dom/li #js {:onClick (fn [e]
+  (reify om/IRenderState
+    (render-state [_ {:keys [selected]}]
+      (dom/li #js {:className (when selected "selected")
+                   :onClick (fn [e]
                               (.preventDefault e)
                               (undo/jump-to-history app-state i))}
               (om/build canvas (:canvas item))))))
@@ -146,10 +147,11 @@
     om/IRender
     (render [_]
       (apply dom/ul nil
-             (map-indexed
+             (reverse (map-indexed
                (fn [i item]
-                 (om/build history-item item {:opts {:i i}}))
-               (:states undo-history))))))
+                 (om/build history-item item {:opts {:i i}
+                                              :state {:selected (= i (:current-idx undo-history))}}))
+               (:states undo-history)))))))
 
 (undo/push-state! @app-state)
 
@@ -160,8 +162,8 @@
 
 ;; Keyboard shortcuts
 
-; (.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] #(undo/do-undo app-state))
-; (.bind js/Mousetrap #js ["ctrl+r"] #(undo/do-redo app-state))
+(.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] #(undo/undo app-state))
+(.bind js/Mousetrap #js ["ctrl+r"] #(undo/redo app-state))
 
 (.bind js/Mousetrap "i" #(swap! app-state update-in [:canvas] start-drawing))
 (.bind js/Mousetrap "esc" (fn [_]

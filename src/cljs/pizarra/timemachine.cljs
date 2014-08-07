@@ -20,7 +20,7 @@
 
 (defn redo-is-possible []
   (< (:current-idx @app-history)
-     (count (:states @app-history))))
+     (dec (count (:states @app-history)))))
 
 (defn push-onto-undo-stack [new-state]
   (let [old-watchable-app-state (peek (:states @app-history))]
@@ -32,9 +32,16 @@
     (swap! app-history assoc :current-idx idx)
     (reset! app-state new-state)))
 
+(defn undo [app-state]
+  (when (undo-is-possible)
+    (jump-to-history app-state (dec (:current-idx @app-history)))))
+
+(defn redo [app-state]
+  (when (redo-is-possible)
+    (jump-to-history app-state (inc (:current-idx @app-history)))))
+
 (defn handle-transaction [tx-data root-cursor]
   (when (= (:tag tx-data) :add-to-undo)
-    (.log js/console (clj->js @app-history))
     (swap! app-history (fn [h]
                          (let [i (:current-idx h)]
                            (->History (vec (take (inc i) (:states h))) i))))
