@@ -138,7 +138,7 @@
     (render [_]
       (dom/li #js {:onClick (fn [e]
                               (.preventDefault e)
-                              (undo/revert-to-history app-state (inc i)))}
+                              (undo/jump-to-history app-state i))}
               (om/build canvas (:canvas item))))))
 
 (defn history [undo-history owner]
@@ -149,9 +149,9 @@
              (map-indexed
                (fn [i item]
                  (om/build history-item item {:opts {:i i}}))
-               undo-history)))))
+               (:states undo-history))))))
 
-(undo/init-history app-state)
+(undo/push-state! @app-state)
 
 (om/root
   history
@@ -160,8 +160,8 @@
 
 ;; Keyboard shortcuts
 
-(.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] #(undo/do-undo app-state))
-(.bind js/Mousetrap #js ["ctrl+r"] #(undo/do-redo app-state))
+; (.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] #(undo/do-undo app-state))
+; (.bind js/Mousetrap #js ["ctrl+r"] #(undo/do-redo app-state))
 
 (.bind js/Mousetrap "i" #(swap! app-state update-in [:canvas] start-drawing))
 (.bind js/Mousetrap "esc" (fn [_]
