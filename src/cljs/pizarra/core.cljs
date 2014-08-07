@@ -104,14 +104,10 @@
     om/IRender
     (render [_]
       (dom/div nil
-               (apply dom/select
-                      #js {:value (:lineWidth tools)
-                           :onChange (fn [e]
-                                       (let [newval (.-value (.-currentTarget e))]
-                                         (om/update! tools [:lineWidth] newval)))}
-                      (map (fn [i]
-                             (dom/option #js {:value i} i))
-                           (range 1 11)))
+               (dom/input #js {:type "text"
+                               :value (:lineWidth tools)
+                               :onChange (fn [e]
+                                           (om/update! tools [:lineWidth] (.-value (.-currentTarget e))))})
                (dom/input #js {:type "text"
                                :value (:strokeStyle tools)
                                :onChange (fn [e]
