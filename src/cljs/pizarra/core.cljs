@@ -9,7 +9,8 @@
 
 (def app-state
   (atom {:canvas {:dimensions {:width 800 :height 400}
-                  :actions []}}))
+                  :actions []}
+         :tools {:width 4}}))
 
 (defprotocol Drawable
   (-draw [this context]))
@@ -37,7 +38,7 @@
   (->LineAction [] {:strokeStyle "#000000"
                     :lineCap "round"
                     :lineJoin "round"
-                    :lineWidth 4}))
+                    :lineWidth (get-in @app-state [:tools :width])}))
 (def line-tool
   (reify
     ITool
@@ -132,5 +133,7 @@
 (swap! app-state update-in [:canvas :actions] pop)
 
 (deref app-state)
+
+(swap! app-state update-in [:tools] assoc :width 3)
 
 )
