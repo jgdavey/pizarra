@@ -94,7 +94,7 @@
                                (om/transact! data [:actions idx] #(-move line-tool % x y)))))}))
         nil))))
 
-(defn history [app owner]
+(defn history [undo-history owner]
   (reify
     om/IRender
     (render [_]
@@ -111,8 +111,7 @@
     om/IRender
     (render [_]
       (dom/div nil
-               (om/build canvas (:canvas app))
-               (om/build history app)))))
+               (om/build canvas (:canvas app))))))
 
 (undo/init-history app-state)
 
@@ -121,6 +120,11 @@
   app-state
   {:target (. js/document (getElementById "app"))
    :tx-listen undo/handle-transaction})
+
+(om/root
+  history
+  undo/app-history
+  {:target (. js/document (getElementById "history"))})
 
 (comment
 
