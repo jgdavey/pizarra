@@ -137,12 +137,13 @@
     om/IRender
     (render [_]
       (dom/div nil
-               (when (undo/undo-is-possible)
-                 (dom/button #js {:onClick (fn [_] (undo/do-undo app-state))}
-                             "Undo"))
-               (when (undo/redo-is-possible)
-                 (dom/button #js {:onClick (fn [_] (undo/do-redo app-state))}
-                             "Redo"))))))
+               (dom/button #js {:onClick (fn [_] (undo/do-undo app-state))
+                                :disabled (not (undo/undo-is-possible))}
+                           "Undo")
+
+               (dom/button #js {:onClick (fn [_] (undo/do-redo app-state))
+                                :disabled (not (undo/redo-is-possible))}
+                           "Redo")))))
 
 (undo/init-history app-state)
 
