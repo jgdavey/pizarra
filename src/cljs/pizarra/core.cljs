@@ -92,18 +92,6 @@
                                (om/transact! data [:actions idx] #(-move line-tool % x y)))))}))
         nil))))
 
-(defn history [undo-history owner]
-  (reify
-    om/IRender
-    (render [_]
-      (dom/div nil
-               (when (undo/undo-is-possible)
-                 (dom/button #js {:onClick (fn [_] (undo/do-undo app-state))}
-                             "Undo"))
-               (when (undo/redo-is-possible)
-                 (dom/button #js {:onClick (fn [_] (undo/do-redo app-state))}
-                             "Redo"))))))
-
 (defn tools-component [tools owner]
   (reify
     om/IRender
@@ -130,18 +118,34 @@
                (om/build tools-component (:tools app))
                (om/build canvas (:canvas app))))))
 
-(undo/init-history app-state)
-
 (om/root
   app-component
   app-state
   {:target (. js/document (getElementById "app"))
    :tx-listen undo/handle-transaction})
 
+;; History management
+
+(defn history [undo-history owner]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div nil
+               (when (undo/undo-is-possible)
+                 (dom/button #js {:onClick (fn [_] (undo/do-undo app-state))}
+                             "Undo"))
+               (when (undo/redo-is-possible)
+                 (dom/button #js {:onClick (fn [_] (undo/do-redo app-state))}
+                             "Redo"))))))
+
+(undo/init-history app-state)
+
 (om/root
   history
   undo/app-history
   {:target (. js/document (getElementById "history"))})
+
+;; Keyboard shortcuts
 
 (.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] #(undo/do-undo app-state))
 (.bind js/Mousetrap #js ["ctrl+r"] #(undo/do-redo app-state))
