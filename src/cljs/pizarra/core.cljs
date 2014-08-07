@@ -10,7 +10,7 @@
 (def app-state
   (atom {:canvas {:dimensions {:width 800 :height 400}
                   :actions []}
-         :tools {:width 4
+         :tools {:lineWidth 4
                  :strokeStyle "#000000" }}))
 
 (defprotocol Drawable
@@ -36,10 +36,8 @@
     (.restore context)))
 
 (defn new-line-action []
-  (->LineAction [] {:strokeStyle (get-in @app-state [:tools :strokeStyle])
-                    :lineCap "round"
-                    :lineJoin "round"
-                    :lineWidth (get-in @app-state [:tools :width])}))
+  (->LineAction [] (merge {:lineCap "round"
+                           :lineJoin "round"} (:tools @app-state))))
 (def line-tool
   (reify
     ITool
@@ -114,10 +112,10 @@
     (render [_]
       (dom/div nil
                (apply dom/select
-                      #js {:value (:width tools)
+                      #js {:value (:lineWidth tools)
                            :onChange (fn [e]
                                        (let [newval (.-value (.-currentTarget e))]
-                                         (om/update! tools [:width] newval)))}
+                                         (om/update! tools [:lineWidth] newval)))}
                       (map (fn [i]
                              (dom/option #js {:value i} i))
                            (range 1 11)))
@@ -154,6 +152,6 @@
 
 (deref app-state)
 
-(swap! app-state update-in [:tools] assoc :width 3)
+(swap! app-state update-in [:tools] assoc :lineWidth 3)
 
 )
