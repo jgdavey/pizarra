@@ -11,8 +11,9 @@
   (atom {:canvas {:drawing? false
                   :dimensions {:width 800 :height 400}
                   :actions []}
-         :tools {:lineWidth 4
-                 :strokeStyle "#000000" }}))
+         :tools {:current :freehand
+                 :props {:lineWidth 4
+                         :strokeStyle "#000000"}}}))
 
 (defprotocol Drawable
   (-draw [this context]))
@@ -38,8 +39,8 @@
 
 (defn new-line-action []
   (->LineAction [] (merge {:lineCap "round"
-                           :lineJoin "round"} (:tools @app-state))))
-(def line-tool
+                           :lineJoin "round"} (get-in @app-state [:tools :props]))))
+(def freehand-tool
   (reify
     ITool
     (-start [_ actions]
@@ -48,6 +49,25 @@
       (update-in action [:points] conj [x y]))
     (-end [_ actions]
       actions)))
+
+(def straight-line-tool
+  (reify
+    ITool
+    (-start [_ actions]
+      (conj actions (new-line-action)))
+    (-move [_ action x y]
+      (if (< (count (:points action)) 2)
+        (update-in action [:points] conj [x y])
+        (update-in action [:points 1] (fn [_] [x y]))))
+    (-end [_ actions]
+      actions)))
+
+(def all-tools
+  {:line straight-line-tool
+   :freehand freehand-tool})
+
+(defn current-tool []
+  (all-tools (get-in @app-state [:tools :current])))
 
 (defn clearContext [context]
   (let [canvas (.-canvas context)]
@@ -59,14 +79,16 @@
     (-draw action context)))
 
 (defn start-drawing [canvas]
-  (-> canvas
-    (update-in [:actions] (partial -start line-tool))
-    (assoc :drawing? true)))
+  (let [tool (current-tool)]
+    (-> canvas
+      (update-in [:actions] (partial -start tool))
+      (assoc :drawing? true))))
 
 (defn stop-drawing [canvas]
-  (-> canvas
-    (update-in [:actions] (partial -end line-tool))
-    (assoc :drawing? false)))
+  (let [tool (current-tool)]
+    (-> canvas
+      (update-in [:actions] (partial -end tool))
+      (assoc :drawing? false))))
 
 (defn canvas [data owner {:keys [interact?]}]
   (reify
@@ -96,7 +118,7 @@
                                        idx (dec (count (:actions @data)))
                                        x (- (.-pageX e) (.-offsetLeft dom))
                                        y (- (.-pageY e) (.-offsetTop dom))]
-                                   (om/transact! data [:actions idx] #(-move line-tool % x y)))))})))
+                                   (om/transact! data [:actions idx] #(-move (current-tool) % x y)))))})))
         nil))))
 
 (defn tools-component [tools owner]
@@ -105,13 +127,13 @@
     (render [_]
       (dom/div nil
                (dom/input #js {:type "text"
-                               :value (:lineWidth tools)
+                               :value (get-in tools [:props :lineWidth])
                                :onChange (fn [e]
-                                           (om/update! tools [:lineWidth] (js/parseInt (.-value (.-currentTarget e)))))})
+                                           (om/update! tools [:props :lineWidth] (js/parseInt (.-value (.-currentTarget e)))))})
                (dom/input #js {:type "text"
-                               :value (:strokeStyle tools)
+                               :value (get-in tools [:props :strokeStyle])
                                :onChange (fn [e]
-                                           (om/update! tools [:strokeStyle] (.-value (.-currentTarget e))))})))))
+                                           (om/update! tools [:props :strokeStyle] (.-value (.-currentTarget e))))})))))
 
 (defn app-component [app owner]
   (reify
@@ -173,21 +195,20 @@
       n)))
 
 (.bind js/Mousetrap "["
-       (fn [] (swap! app-state update-in [:tools :lineWidth] (partial bounded-bump dec))))
+       (fn [] (swap! app-state update-in [:tools :props :lineWidth] (partial bounded-bump dec))))
 
 (.bind js/Mousetrap "]"
-       (fn [] (swap! app-state update-in [:tools :lineWidth] (partial bounded-bump inc))))
+       (fn [] (swap! app-state update-in [:tools :props :lineWidth] (partial bounded-bump inc))))
 
 
 (comment
 
-(swap! app-state update-in [:canvas :actions 0 :props] assoc :strokeStyle "#999999")
+(swap! app-state assoc-in [:canvas :actions 0 :props :strokeStyle] "#999999")
 (swap! app-state update-in [:canvas :actions] pop)
 
 (deref app-state)
-(deref undo/app-history)
 
-(swap! app-state update-in [:tools] assoc :lineWidth 3)
+(swap! app-state assoc-in [:tools :props :lineWidth] 3)
 
 (swap! app-state update-in [:canvas :dimensions] assoc :width 900 :height 300)
 
