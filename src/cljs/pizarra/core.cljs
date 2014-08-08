@@ -50,15 +50,19 @@
     (-end [_ actions]
       actions)))
 
+(defn next-point [points x y]
+  (if (< (count points) 2)
+    (conj points [x y])
+    (assoc points 1 [x y])))
+
 (def straight-line-tool
   (reify
     ITool
     (-start [_ actions]
       (conj actions (new-line-action)))
     (-move [_ action x y]
-      (if (< (count (:points action)) 2)
-        (update-in action [:points] conj [x y])
-        (update-in action [:points 1] (fn [_] [x y]))))
+      (let [points (next-point (:points action) x y)]
+        (assoc action :points points)))
     (-end [_ actions]
       actions)))
 
