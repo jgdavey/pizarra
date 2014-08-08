@@ -11,7 +11,8 @@
   (atom {:canvas {:drawing? false
                   :dimensions {:width 800 :height 400}
                   :actions []}
-         :tools {:current :freehand
+         :tools {:snap false
+                 :current :freehand
                  :props {:lineWidth 4
                          :strokeStyle "#000000"}}}))
 
@@ -50,10 +51,17 @@
     (-end [_ actions]
       actions)))
 
+(defn snap [points]
+  (if (get-in @app-state [:tools :snap])
+    (let [y0 (get-in points [0 1])]
+      [(first points) [(get-in points [1 0]) y0]])
+    points))
+
 (defn next-point [points x y]
-  (if (< (count points) 2)
-    (conj points [x y])
-    (assoc points 1 [x y])))
+  (if (zero? (count points))
+    [[x y]]
+    (let [points (assoc points 1 [x y])]
+      (snap points))))
 
 (def straight-line-tool
   (reify
@@ -201,6 +209,14 @@
                             (swap! app-state update-in [:canvas] stop-drawing)
                             (undo/push-onto-undo-stack @app-state)))
 
+(.addEventListener js/document "keydown" (fn [e]
+                                           (when (= (.-which e) 16) ;; shift
+                                             (swap! app-state assoc-in [:tools :snap] true))))
+
+(.addEventListener js/document "keyup" (fn [e]
+                                           (when (= (.-which e) 16) ;; shift
+                                             (swap! app-state assoc-in [:tools :snap] false))))
+
 (defn bounded-bump [f n]
   (let [m (f n)]
     (if (> m 0)
@@ -225,5 +241,6 @@
 (swap! app-state assoc-in [:tools :current] :line)
 
 (swap! app-state update-in [:canvas :dimensions] assoc :width 900 :height 300)
+
 
 )
