@@ -215,6 +215,14 @@
                                    (om/transact! data [:actions idx] #(-move (current-tool) % x y)))))})))
         nil))))
 
+(defn tool-button [tools owner {:keys [tool label]}]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/button #js {:disabled (= (om/value (:current tools)) tool)
+                       :onClick (fn [e]
+                                  (om/update! tools [:current] tool))} label))))
+
 (defn tools-component [tools owner]
   (reify
     om/IRender
@@ -230,19 +238,10 @@
                                :value (get-in tools [:props :strokeStyle])
                                :onChange (fn [e]
                                            (om/update! tools [:props :strokeStyle] (.-value (.-currentTarget e))))})
-               (dom/button #js {:disabled (= (om/value (:current tools)) :freehand)
-                                :onClick (fn [e]
-                                           (om/update! tools [:current] :freehand))} "Freebird")
-               (dom/button #js {:disabled (= (om/value (:current tools)) :line)
-                                :onClick (fn [e]
-                                           (om/update! tools [:current] :line))} "Line")
-               (dom/button #js {:disabled (= (om/value (:current tools)) :rectangle)
-                                :onClick (fn [e]
-                                           (om/update! tools [:current] :rectangle))} "Rectangle")
-               (dom/button #js {:disabled (= (om/value (:current tools)) :circle)
-                                :onClick (fn [e]
-                                           (om/update! tools [:current] :circle))} "Circle")
-               ))))
+               (om/build tool-button tools {:opts {:tool :freehand :label "Freebird"}})
+               (om/build tool-button tools {:opts {:tool :line :label "Line"}})
+               (om/build tool-button tools {:opts {:tool :rectangle :label "Rectangle"}})
+               (om/build tool-button tools {:opts {:tool :circle :label "Circle"}})))))
 
 (defn app-component [app owner]
   (reify
