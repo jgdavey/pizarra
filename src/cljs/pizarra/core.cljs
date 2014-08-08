@@ -38,9 +38,45 @@
     (.stroke context)
     (.restore context)))
 
+(defn square [[[x0 y0] [x1 y1]]]
+  [[x0 y0] [x1 y0] [x1 y1] [x0 y1]])
+
+(defrecord SquareAction [points props]
+  Drawable
+  (-draw [this context]
+    (.save context)
+    (doseq [[k val] props]
+      (aset context (name k) val))
+    (.beginPath context)
+    (let [[x0 y0] (first points)]
+      (.moveTo context x0 y0)
+      (doseq [[x y] (square points)]
+        (.lineTo context x y))
+      (.lineTo context x0 y0))
+    (.stroke context)
+    (.restore context)))
+
+(defrecord CircleAction [origin radius props]
+  Drawable
+  (-draw [this context]
+    (.save context)
+    (doseq [[k val] props]
+      (aset context (name k) val))
+    (.beginPath context)
+    (let [[x y] origin]
+      (.arc context x y radius (* 2 js/Math.PI) false))
+    (.stroke context)
+    (.restore context)))
+
 (defn new-line-action []
   (->LineAction [] (merge {:lineCap "round"
                            :lineJoin "round"} (get-in @app-state [:tools :props]))))
+(defn new-square-action []
+  (->SquareAction [] (merge {:lineCap "round"
+                             :lineJoin "round"} (get-in @app-state [:tools :props]))))
+(defn new-circle-action []
+  (->CircleAction nil 0 (get-in @app-state [:tools :props])))
+
 (def freehand-tool
   (reify
     ITool
@@ -53,6 +89,11 @@
 
 (defn slope [[[x0 y0] [x1 y1]]]
   (/ (- y1 y0) (- x1 x0)))
+
+(defn distance [[x0 y0] [x1 y1]]
+  (let [a (- x1 x0)
+        b (- y1 y0)]
+    (Math/sqrt (+ (* a a) (* b b)))))
 
 (defn adjusted-slope [m]
   (cond
@@ -73,11 +114,11 @@
       (adjust-points m points))
     points))
 
-(defn next-point [points x y]
+(defn next-point [points x y f]
   (if (zero? (count points))
     [[x y]]
     (let [points (assoc points 1 [x y])]
-      (snap points))))
+      (f points))))
 
 (def straight-line-tool
   (reify
@@ -85,14 +126,39 @@
     (-start [_ actions]
       (conj actions (new-line-action)))
     (-move [_ action x y]
-      (let [points (next-point (:points action) x y)]
+      (let [points (next-point (:points action) x y snap)]
         (assoc action :points points)))
+    (-end [_ actions]
+      actions)))
+
+(def square-tool
+  (reify
+    ITool
+    (-start [_ actions]
+      (conj actions (new-square-action)))
+    (-move [_ action x y]
+      (let [points (next-point (:points action) x y identity)]
+        (assoc action :points points)))
+    (-end [_ actions]
+      actions)))
+
+(def circle-tool
+  (reify
+    ITool
+    (-start [_ actions]
+      (conj actions (new-circle-action)))
+    (-move [_ action x y]
+      (if-let [o (:origin action)]
+        (assoc action :radius (distance o [x y]))
+        (assoc action :origin [x y])))
     (-end [_ actions]
       actions)))
 
 (def all-tools
   {:line straight-line-tool
-   :freehand freehand-tool})
+   :freehand freehand-tool
+   :square square-tool
+   :circle circle-tool})
 
 (defn current-tool []
   (all-tools (get-in @app-state [:tools :current])))
@@ -170,6 +236,12 @@
                (dom/button #js {:disabled (= (om/value (:current tools)) :line)
                                 :onClick (fn [e]
                                            (om/update! tools [:current] :line))} "Line")
+               (dom/button #js {:disabled (= (om/value (:current tools)) :square)
+                                :onClick (fn [e]
+                                           (om/update! tools [:current] :square))} "Square")
+               (dom/button #js {:disabled (= (om/value (:current tools)) :circle)
+                                :onClick (fn [e]
+                                           (om/update! tools [:current] :circle))} "Circle")
                ))))
 
 (defn app-component [app owner]
@@ -248,15 +320,10 @@
 
 (comment
 
-(swap! app-state assoc-in [:canvas :actions 0 :props :strokeStyle] "#999999")
-(swap! app-state update-in [:canvas :actions] pop)
-
 (deref app-state)
-
-(swap! app-state assoc-in [:tools :props :lineWidth] 3)
-(swap! app-state assoc-in [:tools :current] :line)
 
 (swap! app-state update-in [:canvas :dimensions] assoc :width 900 :height 300)
 
+(square [[587 229] [554 333]])
 
 )
