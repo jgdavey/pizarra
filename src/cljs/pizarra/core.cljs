@@ -51,10 +51,26 @@
     (-end [_ actions]
       actions)))
 
+(defn slope [[[x0 y0] [x1 y1]]]
+  (/ (- y1 y0) (- x1 x0)))
+
+(defn adjusted-slope [m]
+  (cond
+    (< 0.5 m 2) 1
+    (< -0.5 m 0.5) 0
+    (< -2 m -0.5) -1
+    :else ::infinity))
+
+(defn adjust-points [m [[x0 y0] [x1 y1]]]
+  (if (= m ::infinity)
+    [[x0 y0] [x0 y1]]
+    (let [new-y (+ (* m (- x1 x0)) y0)]
+      [[x0 y0] [x1 new-y]])))
+
 (defn snap [points]
   (if (get-in @app-state [:tools :snap])
-    (let [y0 (get-in points [0 1])]
-      [(first points) [(get-in points [1 0]) y0]])
+    (let [m (adjusted-slope (slope points))]
+      (adjust-points m points))
     points))
 
 (defn next-point [points x y]
