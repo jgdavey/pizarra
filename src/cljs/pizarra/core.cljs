@@ -126,14 +126,23 @@
     om/IRender
     (render [_]
       (dom/div nil
+               (dom/label nil "Line width")
                (dom/input #js {:type "text"
                                :value (get-in tools [:props :lineWidth])
                                :onChange (fn [e]
                                            (om/update! tools [:props :lineWidth] (js/parseInt (.-value (.-currentTarget e)))))})
+               (dom/label nil "Color")
                (dom/input #js {:type "text"
                                :value (get-in tools [:props :strokeStyle])
                                :onChange (fn [e]
-                                           (om/update! tools [:props :strokeStyle] (.-value (.-currentTarget e))))})))))
+                                           (om/update! tools [:props :strokeStyle] (.-value (.-currentTarget e))))})
+               (dom/button #js {:disabled (= (om/value (:current tools)) :freehand)
+                                :onClick (fn [e]
+                                           (om/update! tools [:current] :freehand))} "Freebird")
+               (dom/button #js {:disabled (= (om/value (:current tools)) :line)
+                                :onClick (fn [e]
+                                           (om/update! tools [:current] :line))} "Line")
+               ))))
 
 (defn app-component [app owner]
   (reify
@@ -209,6 +218,7 @@
 (deref app-state)
 
 (swap! app-state assoc-in [:tools :props :lineWidth] 3)
+(swap! app-state assoc-in [:tools :current] :line)
 
 (swap! app-state update-in [:canvas :dimensions] assoc :width 900 :height 300)
 
