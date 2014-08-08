@@ -116,7 +116,7 @@
 
 (defn next-point [points x y f]
   (if (zero? (count points))
-    [[x y]]
+    [[x y] [x y]]
     (let [points (assoc points 1 [x y])]
       (f points))))
 
