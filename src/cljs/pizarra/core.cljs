@@ -38,10 +38,10 @@
     (.stroke context)
     (.restore context)))
 
-(defn square [[[x0 y0] [x1 y1]]]
+(defn rectangle [[[x0 y0] [x1 y1]]]
   [[x0 y0] [x1 y0] [x1 y1] [x0 y1]])
 
-(defrecord SquareAction [points props]
+(defrecord RectangleAction [points props]
   Drawable
   (-draw [this context]
     (.save context)
@@ -50,7 +50,7 @@
     (.beginPath context)
     (let [[x0 y0] (first points)]
       (.moveTo context x0 y0)
-      (doseq [[x y] (square points)]
+      (doseq [[x y] (rectangle points)]
         (.lineTo context x y))
       (.lineTo context x0 y0))
     (.stroke context)
@@ -71,8 +71,8 @@
 (defn new-line-action []
   (->LineAction [] (merge {:lineCap "round"
                            :lineJoin "round"} (get-in @app-state [:tools :props]))))
-(defn new-square-action []
-  (->SquareAction [] (merge {:lineCap "round"
+(defn new-rectangle-action []
+  (->RectangleAction [] (merge {:lineCap "round"
                              :lineJoin "round"} (get-in @app-state [:tools :props]))))
 (defn new-circle-action []
   (->CircleAction nil 0 (get-in @app-state [:tools :props])))
@@ -131,11 +131,11 @@
     (-end [_ actions]
       actions)))
 
-(def square-tool
+(def rectangle-tool
   (reify
     ITool
     (-start [_ actions]
-      (conj actions (new-square-action)))
+      (conj actions (new-rectangle-action)))
     (-move [_ action x y]
       (let [points (next-point (:points action) x y identity)]
         (assoc action :points points)))
@@ -157,7 +157,7 @@
 (def all-tools
   {:line straight-line-tool
    :freehand freehand-tool
-   :square square-tool
+   :rectangle rectangle-tool
    :circle circle-tool})
 
 (defn current-tool []
@@ -236,9 +236,9 @@
                (dom/button #js {:disabled (= (om/value (:current tools)) :line)
                                 :onClick (fn [e]
                                            (om/update! tools [:current] :line))} "Line")
-               (dom/button #js {:disabled (= (om/value (:current tools)) :square)
+               (dom/button #js {:disabled (= (om/value (:current tools)) :rectangle)
                                 :onClick (fn [e]
-                                           (om/update! tools [:current] :square))} "Square")
+                                           (om/update! tools [:current] :rectangle))} "Rectangle")
                (dom/button #js {:disabled (= (om/value (:current tools)) :circle)
                                 :onClick (fn [e]
                                            (om/update! tools [:current] :circle))} "Circle")
@@ -324,6 +324,6 @@
 
 (swap! app-state update-in [:canvas :dimensions] assoc :width 900 :height 300)
 
-(square [[587 229] [554 333]])
+(rectangle [[587 229] [554 333]])
 
 )
