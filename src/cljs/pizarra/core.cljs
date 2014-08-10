@@ -6,6 +6,7 @@
             [pizarra.timemachine :as undo]))
 
 (enable-console-print!)
+(.initializeTouchEvents js/React true)
 
 (def app-state
   (atom {:canvas {:drawing? false
@@ -184,6 +185,11 @@
       (update-in [:actions] (partial -end tool))
       (assoc :drawing? false))))
 
+(defn get-coords [dom e]
+  (let [x (- (.-pageX e) (.-offsetLeft dom))
+        y (- (.-pageY e) (.-offsetTop dom))]
+    [x y]))
+
 (defn canvas [data owner {:keys [interact?]}]
   (reify
     om/IDidMount
@@ -201,17 +207,27 @@
           (merge (:dimensions data)
              (when interact?
                {:onSelectStart (fn [_])
+                :onTouchStart (fn [e]
+                               (.preventDefault e)
+                               (om/transact! data [] start-drawing))
                 :onMouseDown (fn [e]
                                (.preventDefault e)
                                (om/transact! data [] start-drawing))
                 :onMouseUp (fn [_]
                              (om/transact! data [] stop-drawing :add-to-undo))
+                :onTouchEnd (fn [_]
+                             (om/transact! data [] stop-drawing :add-to-undo))
+                :onTouchMove (fn [e]
+                               (when (:drawing? @data)
+                                 (let [dom (om/get-node owner)
+                                       idx (dec (count (:actions @data)))
+                                       [x y] (get-coords dom (aget (.-touches e) 0))]
+                                   (om/transact! data [:actions idx] #(-move (current-tool) % x y)))))
                 :onMouseMove (fn [e]
                                (when (:drawing? @data)
                                  (let [dom (om/get-node owner)
                                        idx (dec (count (:actions @data)))
-                                       x (- (.-pageX e) (.-offsetLeft dom))
-                                       y (- (.-pageY e) (.-offsetTop dom))]
+                                       [x y] (get-coords dom e)]
                                    (om/transact! data [:actions idx] #(-move (current-tool) % x y)))))})))
         nil))))
 
