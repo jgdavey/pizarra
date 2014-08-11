@@ -32,5 +32,16 @@
                                    :output-dir "resources/public/js/out"
                                    :optimizations :none
                                    :source-map true
+                                   :language-in :ecmascript5
+                                   :language-out :ecmascript5
+                                   :externs ["react/externs/react.js" "libs/mousetrap.js"]}}
+                       {:id "prod"
+                        :source-paths ["src/cljs"]
+                        :compiler {:output-to "build/js/pizarra.js"
+                                   :output-dir "build/js/out"
+                                   :pretty-print false
+                                   :optimizations :advanced
+                                   :language-in :ecmascript5
+                                   :language-out :ecmascript5
                                    :externs ["react/externs/react.js" "libs/mousetrap.js"]}}]}
 )
