@@ -12,3 +12,4 @@ pom.xml
 
 resources/public/js/out
 resources/public/js/*.js
+/build/js/*

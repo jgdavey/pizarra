@@ -3,6 +3,8 @@
         <title>Pizarra</title>
         <style>
             body {
+                font-family: "Helvetica Neue", helvetica, arial, sans-serif;
+                font-size: 14px;
                 background-color: #fafafa;
             }
             canvas {
@@ -11,6 +13,7 @@
             #container {
                 width: 1000px;
                 margin: 0 auto;
+                overflow: hidden;
             }
             #app {
                 float: left;
@@ -38,6 +41,15 @@
             #history .selected canvas {
                 border-color: blue;
             }
+            #help {
+                padding-top: 20px;
+                clear: both;
+            }
+            #help dl dt {
+                float: left;
+                clear: left;
+                min-width: 60px;
+            }
 
         </style>
         <script src="http://fb.me/react-0.11.1.js"></script>
@@ -48,6 +60,17 @@
         <div id="container">
             <div id="app"></div>
             <div id="history"></div>
+            <div id="help">
+                <h2>Keyboard shortcuts</h2>
+                <dl>
+                    <dt><kbd>[</kbd>, <kbd>]</kbd></dt>
+                    <dd>Decrease/increase brush size</dd>
+                    <dt><kbd>u</kbd></dt>
+                    <dd>Undo</dd>
+                    <dt><kbd>Ctrl+r</kbd></dt>
+                    <dd>Redo</dd>
+                </dl>
+            </div>
         </div>
 
         <script src="/js/pizarra.js" type="text/javascript"></script>
