@@ -267,13 +267,36 @@
                (om/build tools-component (:tools app))
                (om/build canvas (:canvas app) {:opts {:interact? true}})))))
 
+(defn push-state! [state]
+  (undo/push-state! (get-in state [:canvas])))
+
+(defn handle-undo-transaction [tx-data root-cursor]
+  (when (= (:tag tx-data) :add-to-undo)
+    (push-state! (:new-state tx-data))))
+
 (om/root
   app-component
   app-state
   {:target (. js/document (getElementById "app"))
-   :tx-listen undo/handle-transaction})
+   :tx-listen handle-undo-transaction})
 
 ;; History management
+(defn- reset-to-history! [idx]
+  (when-let [s (undo/jump-to-history! idx)]
+    (swap! app-state assoc-in [:canvas] s)))
+
+(defn- undo! []
+  (when-let [s (undo/undo)]
+    (swap! app-state assoc-in [:canvas] s)))
+
+(defn- redo! []
+  (when-let [s (undo/redo)]
+    (swap! app-state assoc-in [:canvas] s)))
+
+(defn push-state! [state]
+  (undo/push-state! (get-in state [:canvas])))
+
+(push-state! @app-state)
 
 (defn history-item [item owner {:keys [i]}]
   (reify om/IRenderState
@@ -281,8 +304,8 @@
       (dom/li #js {:className (when selected "selected")
                    :onClick (fn [e]
                               (.preventDefault e)
-                              (undo/jump-to-history app-state i))}
-              (om/build canvas (:canvas item))))))
+                              (reset-to-history! i))}
+              (om/build canvas item)))))
 
 (defn history [undo-history owner]
   (reify
@@ -295,7 +318,6 @@
                                               :state {:selected (= i (:current-idx undo-history))}}))
                (:states undo-history)))))))
 
-(undo/push-state! @app-state)
 
 (om/root
   history
@@ -304,13 +326,13 @@
 
 ;; Keyboard shortcuts
 
-(.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] #(undo/undo app-state))
-(.bind js/Mousetrap #js ["ctrl+r"] #(undo/redo app-state))
+(.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] undo!)
+(.bind js/Mousetrap #js ["ctrl+r"] redo!)
 
 (.bind js/Mousetrap "i" #(swap! app-state update-in [:canvas] start-drawing))
 (.bind js/Mousetrap "esc" (fn [_]
                             (swap! app-state update-in [:canvas] stop-drawing)
-                            (undo/push-onto-undo-stack @app-state)))
+                            (push-state! @app-state)))
 
 (.addEventListener js/document "keydown" (fn [e]
                                            (when (= (.-which e) 16) ;; shift

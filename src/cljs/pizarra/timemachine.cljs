@@ -9,11 +9,23 @@
 (defn forget-everything! []
   (reset! app-history blank-history))
 
-(defn push-state! [app-state]
+(defn- current-state []
+  (let [h @app-history
+        i (:current-idx h)]
+    (when (pos? i)
+      (nth (:states h) i))))
+
+(defn- push-state* [app-state]
   (swap! app-history
          (fn [h]
-           (->History (conj (:states h) app-state)
-                      (inc (:current-idx h))))))
+           (let [i (:current-idx h)
+                 states (vec (take (inc i) (:states h)))]
+             (->History (conj states app-state) (inc i))))))
+
+(defn push-state! [new-state]
+  "Always throws away app 'future'"
+  (when-not (= (current-state) new-state)
+    (push-state* new-state)))
 
 (defn undo-is-possible []
   (> (:current-idx @app-history) 0))
@@ -22,27 +34,18 @@
   (< (:current-idx @app-history)
      (dec (count (:states @app-history)))))
 
-(defn push-onto-undo-stack [new-state]
-  (let [old-watchable-app-state (peek (:states @app-history))]
-    (when-not (= old-watchable-app-state new-state)
-      (push-state! new-state))))
-
-(defn jump-to-history [app-state idx]
+(defn jump-to-history!
+  "Moves history cursor to specified index.
+  Returns state at index, or nil."
+  [idx]
   (when-let [new-state (nth (:states @app-history) idx)]
     (swap! app-history assoc :current-idx idx)
-    (reset! app-state new-state)))
+    new-state))
 
-(defn undo [app-state]
+(defn undo []
   (when (undo-is-possible)
-    (jump-to-history app-state (dec (:current-idx @app-history)))))
+    (jump-to-history! (dec (:current-idx @app-history)))))
 
-(defn redo [app-state]
+(defn redo []
   (when (redo-is-possible)
-    (jump-to-history app-state (inc (:current-idx @app-history)))))
-
-(defn handle-transaction [tx-data root-cursor]
-  (when (= (:tag tx-data) :add-to-undo)
-    (swap! app-history (fn [h]
-                         (let [i (:current-idx h)]
-                           (->History (vec (take (inc i) (:states h))) i))))
-    (push-onto-undo-stack (:new-state tx-data))))
+    (jump-to-history! (inc (:current-idx @app-history)))))
