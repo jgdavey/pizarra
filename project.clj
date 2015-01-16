@@ -2,46 +2,64 @@
   :description "FIXME: write this!"
   :url "http://example.com/FIXME"
 
-  :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/clojurescript "0.0-2277"]
-                 [org.clojure/core.async "0.1.303.0-886421-alpha"]
-
-                 ;; CLJ
-                 [ring/ring-core "1.3.0"]
-                 [compojure "1.1.8"]
-
-                 ;; CLJS
-                 [om "0.7.1"]]
-
-  :plugins [[lein-cljsbuild "1.0.3"]
-            [lein-ring "0.8.11"]
-            [lein-pdo "0.1.1"]]
-
-  :aliases {"dev" ["pdo" "cljsbuild" "auto" "dev," "ring" "server-headless"]}
-
   :source-paths ["src/clj"]
 
-  :ring {:handler pizarra.server/app
-         :init    pizarra.server/init}
+  :test-paths ["spec/clj"]
 
-  :profiles {:dev {:plugins [[com.cemerick/austin "0.1.4"]]}}
+  :dependencies [[org.clojure/clojure "1.6.0"]
+                 [org.clojure/clojurescript "0.0-2511" :scope "provided"]
+                 [ring "1.3.2"]
+                 [ring/ring-defaults "0.1.2"]
+                 [compojure "1.3.1"]
+                 [enlive "1.1.5"]
+                 [om "0.8.0-rc1"]
+                 [environ "1.0.0"]]
 
-  :cljsbuild {:builds [{:id "dev"
-                        :source-paths ["src/cljs"]
-                        :compiler {:output-to "resources/public/js/pizarra.js"
-                                   :output-dir "resources/public/js/out"
-                                   :optimizations :none
-                                   :source-map true
-                                   :language-in :ecmascript5
-                                   :language-out :ecmascript5
-                                   :externs ["react/externs/react.js" "libs/mousetrap.js"]}}
-                       {:id "prod"
-                        :source-paths ["src/cljs"]
-                        :compiler {:output-to "build/js/pizarra.js"
-                                   :output-dir "build/js/out"
-                                   :pretty-print false
-                                   :optimizations :advanced
-                                   :language-in :ecmascript5
-                                   :language-out :ecmascript5
-                                   :externs ["react/externs/react.js" "libs/mousetrap.js"]}}]}
-)
+  :plugins [[lein-cljsbuild "1.0.3"]
+            [lein-environ "1.0.0"]]
+
+  :min-lein-version "2.5.0"
+
+  :uberjar-name "pizarra.jar"
+
+  :cljsbuild {:builds {:app {:source-paths ["src/cljs"]
+                             :compiler {:output-to     "resources/public/js/app.js"
+                                        :output-dir    "resources/public/js/out"
+                                        :source-map    "resources/public/js/out.js.map"
+                                        :preamble      ["libs/mousetrap.min.js" "react/react.min.js"]
+                                        :externs       ["libs/mousetrap.externs.js" "react/externs/react.js"]
+                                        :optimizations :none
+                                        :pretty-print  true}}}}
+
+  :profiles {:dev {:source-paths ["env/dev/clj"]
+
+                   :dependencies [[figwheel "0.1.6-SNAPSHOT"]
+                                  [com.cemerick/piggieback "0.1.3"]
+                                  [weasel "0.4.2"]
+                                  [leiningen "2.5.0"]]
+
+                   :repl-options {:init-ns pizarra.server
+                                  :nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
+
+                   :plugins [[lein-figwheel "0.1.6-SNAPSHOT"]]
+
+                   :figwheel {:http-server-root "public"
+                              :server-port 3449
+                              :css-dirs ["resources/public/css"]}
+
+                   :env {:is-dev true}
+
+                   :cljsbuild {:builds
+                               {:app
+                                {:source-paths ["env/dev/cljs"]}}}}
+
+             :uberjar {:source-paths ["env/prod/clj"]
+                       :hooks [leiningen.cljsbuild]
+                       :env {:production true}
+                       :omit-source true
+                       :aot :all
+                       :cljsbuild {:builds {:app
+                                            {:source-paths ["env/prod/cljs"]
+                                             :compiler
+                                             {:optimizations :advanced
+                                              :pretty-print false}}}}}})

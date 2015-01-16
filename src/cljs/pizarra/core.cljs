@@ -6,6 +6,7 @@
             [pizarra.timemachine :as undo]))
 
 (enable-console-print!)
+
 (.initializeTouchEvents js/React true)
 
 (def app-state
@@ -274,12 +275,6 @@
   (when (= (:tag tx-data) :add-to-undo)
     (push-state! (:new-state tx-data))))
 
-(om/root
-  app-component
-  app-state
-  {:target (. js/document (getElementById "app"))
-   :tx-listen handle-undo-transaction})
-
 ;; History management
 (defn- reset-to-history! [idx]
   (when-let [s (undo/jump-to-history! idx)]
@@ -318,41 +313,46 @@
                                               :state {:selected (= i (:current-idx undo-history))}}))
                (:states undo-history)))))))
 
-
-(om/root
-  history
-  undo/app-history
-  {:target (. js/document (getElementById "history"))})
-
-;; Keyboard shortcuts
-
-(.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] undo!)
-(.bind js/Mousetrap #js ["ctrl+r"] redo!)
-
-(.bind js/Mousetrap "i" #(swap! app-state update-in [:canvas] start-drawing))
-(.bind js/Mousetrap "esc" (fn [_]
-                            (swap! app-state update-in [:canvas] stop-drawing)
-                            (push-state! @app-state)))
-
-(.addEventListener js/document "keydown" (fn [e]
-                                           (when (= (.-which e) 16) ;; shift
-                                             (swap! app-state assoc-in [:tools :snap] true))))
-
-(.addEventListener js/document "keyup" (fn [e]
-                                           (when (= (.-which e) 16) ;; shift
-                                             (swap! app-state assoc-in [:tools :snap] false))))
-
 (defn bounded-bump [f n]
   (let [m (f n)]
     (if (> m 0)
       m
       n)))
 
-(.bind js/Mousetrap "["
-       (fn [] (swap! app-state update-in [:tools :props :lineWidth] (partial bounded-bump dec))))
+(defn setup-keyboard-shortcuts! []
+  (.bind js/Mousetrap #js ["u" "ctrl+z" "command+z"] undo!)
+  (.bind js/Mousetrap #js ["ctrl+r"] redo!)
 
-(.bind js/Mousetrap "]"
-       (fn [] (swap! app-state update-in [:tools :props :lineWidth] (partial bounded-bump inc))))
+  (.bind js/Mousetrap "i" #(swap! app-state update-in [:canvas] start-drawing))
+  (.bind js/Mousetrap "esc" (fn [_]
+                              (swap! app-state update-in [:canvas] stop-drawing)
+                              (push-state! @app-state)))
+
+  (.addEventListener js/document "keydown" (fn [e]
+                                             (when (= (.-which e) 16) ;; shift
+                                               (swap! app-state assoc-in [:tools :snap] true))))
+
+  (.addEventListener js/document "keyup" (fn [e]
+                                             (when (= (.-which e) 16) ;; shift
+                                               (swap! app-state assoc-in [:tools :snap] false))))
+
+  (.bind js/Mousetrap "["
+         (fn [] (swap! app-state update-in [:tools :props :lineWidth] (partial bounded-bump dec))))
+
+  (.bind js/Mousetrap "]"
+         (fn [] (swap! app-state update-in [:tools :props :lineWidth] (partial bounded-bump inc)))))
+
+(defn main []
+  (setup-keyboard-shortcuts!)
+  (om/root
+    app-component
+    app-state
+    {:target (. js/document (getElementById "app"))
+     :tx-listen handle-undo-transaction})
+  (om/root
+    history
+    undo/app-history
+    {:target (. js/document (getElementById "history"))}))
 
 
 (comment

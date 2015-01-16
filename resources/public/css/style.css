@@ -1,0 +1,48 @@
+body {
+  font-family: "Helvetica Neue", helvetica, arial, sans-serif;
+  font-size: 14px;
+  background-color: #fafafa;
+}
+canvas {
+  background-color: #ffffff;
+}
+#container {
+  width: 1000px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+#app {
+  float: left;
+}
+#app canvas {
+  margin-top: 30px;
+  border: 1px solid #ccc;
+}
+
+#history {
+  float: right;
+  height: 400px;
+  width: 130px;
+  overflow-y: scroll;
+  padding-top: 50px;
+}
+
+#history canvas {
+  width: 120px;
+  height: 60px;
+  border: 1px solid #ccc;
+}
+
+#history ul { list-style: none; margin: 0; padding: 0 }
+#history .selected canvas {
+  border-color: blue;
+}
+#help {
+  padding-top: 20px;
+  clear: both;
+}
+#help dl dt {
+  float: left;
+  clear: left;
+  min-width: 60px;
+}
