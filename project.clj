@@ -8,6 +8,7 @@
 
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/clojurescript "0.0-2511" :scope "provided"]
+                 [org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
                  [ring "1.3.2"]
                  [ring/ring-defaults "0.1.2"]
                  [compojure "1.3.1"]
@@ -27,7 +28,7 @@
                                         :output-dir    "resources/public/js/out"
                                         :source-map    "resources/public/js/out.js.map"
                                         :preamble      ["libs/mousetrap.min.js" "react/react.min.js"]
-                                        :externs       ["libs/mousetrap.externs.js" "react/externs/react.js"]
+                                        :externs       ["libs/mousetrap.externs.js"]
                                         :optimizations :none
                                         :pretty-print  true}}}}
 
@@ -62,4 +63,7 @@
                                             {:source-paths ["env/prod/cljs"]
                                              :compiler
                                              {:optimizations :advanced
-                                              :pretty-print false}}}}}})
+                                              :output-to     "build/js/app.js"
+                                              :output-dir    "build/js/out"
+                                              :source-map    "build/js/out.js.map"
+                                              :pretty-print  false}}}}}})
