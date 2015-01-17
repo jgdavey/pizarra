@@ -2,6 +2,8 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
+            [cognitect.transit :as t]
+            [cljs.reader :refer [read-string]]
             [cljs.core.async :as async :refer [put! chan alts! <! >!]]
             [pizarra.timemachine :as undo]))
 
@@ -9,22 +11,49 @@
 
 (.initializeTouchEvents js/React true)
 
-(def app-state
-  (atom {:canvas {:drawing? false
-                  :dimensions {:width 800 :height 400}
-                  :actions []}
+(def serialize pr-str)
+(def deserialize read-string)
+
+(defonce peerjs-api-key "3s8narvuzddkj4i")
+
+(defonce app-state
+  (atom {:canvas {:dimensions {:width 800 :height 400}
+                  :actions []
+                  :current-action nil}
+         :rtc {:peer-id nil
+               :status "not connected"
+               :connect-to-peer nil}
          :tools {:snap false
                  :current :freehand
                  :props {:lineWidth 4
                          :strokeStyle "#000000"}}}))
 
+(declare push-action! encode decode)
+
+(defn store-connection! [conn]
+  (.on conn "data" (comp push-action! decode))
+  (.on conn "open" (fn []
+                     (swap! app-state assoc-in [:rtc :connected?] true)
+                     (swap! app-state assoc-in [:rtc :status] "connected")))
+  (swap! app-state assoc-in [:rtc :status] "initializing")
+  (swap! app-state assoc-in [:rtc :connection] conn))
+
+(defonce peer-client
+  (let [c (js/Peer. #js {:key peerjs-api-key})]
+    (.on c "open"
+       (fn [id] (swap! app-state assoc-in [:rtc :peer-id] id)))
+    (.on c "connection" store-connection!)
+    c))
+
+; send (data)
+; on ("data", fn...)
+
 (defprotocol Drawable
   (-draw [this context]))
 
 (defprotocol ITool
-  (-start [this actions])
-  (-move [this action x y])
-  (-end [this actions]))
+  (-start [this])
+  (-move [this action x y]))
 
 (defrecord LineAction [points props]
   Drawable
@@ -79,15 +108,39 @@
 (defn new-circle-action []
   (->CircleAction nil 0 (get-in @app-state [:tools :props])))
 
+
+;; Serialization
+(def ^:private -writer
+  (letfn [(keysfn [& keys] #(select-keys % keys))
+          (handler [name f] (t/write-handler (constantly name) f))]
+    (t/writer :json
+              {:handlers
+               {LineAction      (handler "line" (keysfn :points :props))
+                RectangleAction (handler "rect" (keysfn :points :props))
+                CircleAction    (handler "circle" (keysfn :origin :radius :props))}})))
+
+(def ^:private -reader
+  (t/reader :json {:handlers {"line"   map->LineAction
+                              "rect"   map->RectangleAction
+                              "circle" map->CircleAction}}))
+
+(defn encode [state]
+  (t/write -writer state))
+
+(defn decode [json-string]
+  (t/read -reader json-string))
+
+
+
+;; TOOLS
+
 (def freehand-tool
   (reify
     ITool
-    (-start [_ actions]
-      (conj actions (new-line-action)))
+    (-start [_]
+      (new-line-action))
     (-move [_ action x y]
-      (update-in action [:points] conj [x y]))
-    (-end [_ actions]
-      actions)))
+      (update-in action [:points] conj [x y]))))
 
 (defn slope [[[x0 y0] [x1 y1]]]
   (/ (- y1 y0) (- x1 x0)))
@@ -125,36 +178,27 @@
 (def straight-line-tool
   (reify
     ITool
-    (-start [_ actions]
-      (conj actions (new-line-action)))
+    (-start [_] (new-line-action))
     (-move [_ action x y]
       (let [points (next-point (:points action) x y snap)]
-        (assoc action :points points)))
-    (-end [_ actions]
-      actions)))
+        (assoc action :points points)))))
 
 (def rectangle-tool
   (reify
     ITool
-    (-start [_ actions]
-      (conj actions (new-rectangle-action)))
+    (-start [_] (new-rectangle-action))
     (-move [_ action x y]
       (let [points (next-point (:points action) x y identity)]
-        (assoc action :points points)))
-    (-end [_ actions]
-      actions)))
+        (assoc action :points points)))))
 
 (def circle-tool
   (reify
     ITool
-    (-start [_ actions]
-      (conj actions (new-circle-action)))
+    (-start [_] (new-circle-action))
     (-move [_ action x y]
       (if-let [o (:origin action)]
         (assoc action :radius (distance o [x y]))
-        (assoc action :origin [x y])))
-    (-end [_ actions]
-      actions)))
+        (assoc action :origin [x y])))))
 
 (def all-tools
   {:line straight-line-tool
@@ -171,20 +215,19 @@
 
 (defn repaint [context actions]
   (clearContext context)
-  (doseq [action (om/value actions)]
+  (doseq [action actions]
     (-draw action context)))
 
 (defn start-drawing [canvas]
   (let [tool (current-tool)]
     (-> canvas
-      (update-in [:actions] (partial -start tool))
-      (assoc :drawing? true))))
+      (assoc :current-action (-start tool)))))
 
 (defn stop-drawing [canvas]
   (let [tool (current-tool)]
     (-> canvas
-      (update-in [:actions] (partial -end tool))
-      (assoc :drawing? false))))
+      (update-in [:actions] conj (:current-action canvas))
+      (assoc :current-action nil))))
 
 (defn get-coords [dom e]
   (let [x (- (.-pageX e) (.-offsetLeft dom))
@@ -192,45 +235,57 @@
     [x y]))
 
 (defn canvas [data owner {:keys [interact?]}]
-  (reify
-    om/IDidMount
-    (did-mount [_]
-      (repaint (.getContext (om/get-node owner) "2d")
-               (:actions data)))
-    om/IDidUpdate
-    (did-update [_ prev-props prev-state]
-      (repaint (.getContext (om/get-node owner) "2d")
-               (:actions data)))
-    om/IRender
-    (render [_]
-      (dom/canvas
-        (clj->js
-          (merge (:dimensions data)
+  (let [drawit #(repaint (.getContext (om/get-node owner) "2d")
+                         (if-let [ca (om/value (:current-action data))]
+                           (conj (om/value (:actions data)) ca)
+                           (om/value (:actions data))))]
+    (reify
+      om/IDidMount
+      (did-mount [_] (drawit))
+      om/IDidUpdate
+      (did-update [_ prev-props prev-state] (drawit))
+      om/IRender
+      (render [_]
+        (dom/canvas
+          (clj->js
+            (merge (:dimensions data)
              (when interact?
                {:onSelectStart (fn [_])
                 :onTouchStart (fn [e]
-                               (.preventDefault e)
-                               (om/transact! data [] start-drawing))
+                                (.preventDefault e)
+                                (om/transact! data [] start-drawing))
                 :onMouseDown (fn [e]
                                (.preventDefault e)
                                (om/transact! data [] start-drawing))
-                :onMouseUp (fn [_]
-                             (om/transact! data [] stop-drawing :add-to-undo))
-                :onTouchEnd (fn [_]
-                             (om/transact! data [] stop-drawing :add-to-undo))
+                :onMouseUp  (fn [_] (om/transact! data [] stop-drawing :add-to-undo))
+                :onTouchEnd (fn [_] (om/transact! data [] stop-drawing :add-to-undo))
                 :onTouchMove (fn [e]
-                               (when (:drawing? @data)
+                               (when (:current-action @data)
                                  (let [dom (om/get-node owner)
-                                       idx (dec (count (:actions @data)))
                                        [x y] (get-coords dom (aget (.-touches e) 0))]
-                                   (om/transact! data [:actions idx] #(-move (current-tool) % x y)))))
+                                   (om/transact! data [:current-action] #(-move (current-tool) % x y)))))
                 :onMouseMove (fn [e]
-                               (when (:drawing? @data)
+                               (when (:current-action @data)
                                  (let [dom (om/get-node owner)
-                                       idx (dec (count (:actions @data)))
                                        [x y] (get-coords dom e)]
-                                   (om/transact! data [:actions idx] #(-move (current-tool) % x y)))))})))
-        nil))))
+                                   (om/transact! data [:current-action] #(-move (current-tool) % x y)))))})))
+    nil)))))
+
+(defn rtc-view [data _]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div nil
+               (dom/p nil
+                      "Your Peer ID is "
+                      (dom/strong nil (:peer-id data)))
+               (if (:connection data)
+                 (dom/p nil
+                        "Connected to peer. Status: " (:status data))
+                 (dom/input #js {:type "text"
+                                 :value (:connect-to-peer data)
+                                 :onChange (fn [e]
+                                             (om/update! data [:connect-to-peer] (.. e -currentTarget -value)))}))))))
 
 (defn tool-button [tools owner {:keys [tool label]}]
   (reify
@@ -265,14 +320,30 @@
     om/IRender
     (render [_]
       (dom/div nil
+               (om/build rtc-view (:rtc app))
                (om/build tools-component (:tools app))
                (om/build canvas (:canvas app) {:opts {:interact? true}})))))
 
 (defn push-state! [state]
   (undo/push-state! (get-in state [:canvas])))
 
-(defn handle-undo-transaction [tx-data root-cursor]
+(defn push-action!
+  "push an action into the app state and add the new app state to history"
+  [action]
+  (swap! app-state update-in [:canvas :actions] conj action)
+  (push-state! @app-state))
+
+(defn send-to-peer [tx-data]
+  (when (get-in @app-state [:rtc :connected?])
+    (let [conn (get-in @app-state [:rtc :connection])
+          action (peek (get-in tx-data [:new-value :actions]))]
+      (.send conn (encode action)))))
+
+(defn transact-listen [tx-data root-cursor]
+  (when (= (:path tx-data) [:rtc :connect-to-peer])
+    (store-connection! (.connect peer-client (:new-value tx-data))))
   (when (= (:tag tx-data) :add-to-undo)
+    (send-to-peer tx-data)
     (push-state! (:new-state tx-data))))
 
 ;; History management
@@ -348,19 +419,18 @@
     app-component
     app-state
     {:target (. js/document (getElementById "app"))
-     :tx-listen handle-undo-transaction})
+     :tx-listen transact-listen})
   (om/root
     history
     undo/app-history
     {:target (. js/document (getElementById "history"))}))
 
-
 (comment
 
 (deref app-state)
 
-(swap! app-state update-in [:canvas :dimensions] assoc :width 900 :height 300)
+(encode (get-in @app-state [:canvas :actions]))
 
-(rectangle [[587 229] [554 333]])
+(swap! app-state update-in [:canvas :dimensions] assoc :width 900 :height 300)
 
 )
