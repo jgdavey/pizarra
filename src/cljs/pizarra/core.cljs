@@ -413,7 +413,7 @@
   (.bind js/Mousetrap "]"
          (fn [] (swap! app-state update-in [:tools :props :lineWidth] (partial bounded-bump inc)))))
 
-(defn main []
+(defn ^:export main []
   (setup-keyboard-shortcuts!)
   (om/root
     app-component
